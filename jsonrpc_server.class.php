@@ -31,7 +31,7 @@ class server
 	public static function hook( $object )
 	{
 		// Check if valid JSON-RPC Request
-		if (  self::valid_jsonrpc_request() === false ) { throw new Exception( 'Invalid JSON-RPC Request' ); }
+		if (  !self::valid_jsonrpc_request() ) { throw new Exception( 'Invalid JSON-RPC Request' ); }
 		
 			
 		// Get JSON-RPC Request Data
@@ -111,9 +111,10 @@ class server
 		
 		
 		// Decode JSON Request
-		$request = json_decode( $request );					// Decode into Object
+		$request = json_decode( $request );		// Decode into Object
 		
 		if ( json_last_error() != JSON_ERROR_NONE ) { return false; }		// Invalid JSON
+		
 		
 		return $request;
 	}
@@ -134,6 +135,69 @@ class server
 		if ( $_SERVER[ 'HTTP_CONTENT_TYPE' ] != 'application/json' ) { return false; }	// Not Corrent Content-Type
 		
 		return true;	// Checks Passed
+	}
+	
+	
+	
+	/* --- Error Handling ---
+	   ------------------------------------------------------------ */
+	
+	/**
+	 * Error Handler
+	 *
+	 * @param   integer  $errno    Error Number
+	 * @param   string   $errstr   Error Message
+	 * @param   string   $errfile  Error File
+	 * @param   integer  $errline  Error Line
+	 *
+	 * @return  boolean
+	 */
+	public static function handle_error( $errno, $errstr, $errfile, $errline )
+	{
+		var_dump( $errno, $errstr, $errfile, $errline );
+	}
+	
+	
+	/**
+	 * Exception Handler
+	 *
+	 * @param   exception  $e  Exception to Format
+	 *
+	 * @return  boolean
+	 */
+	public static function handle_exception( $e )
+	{
+		$error[ 'type' ] = 'exception';				// Error Type: Exception
+		
+		$error[ 'number' ]	= $e->getCode();		// Error Number
+		$error[ 'message' ]	= $e->getMessage();		// Error Message
+		
+		$error[ 'file' ][ 'filename' ]	= $e->getFile();		// Error File
+		$error[ 'file' ][ 'line' ]		= $e->getLine();		// Error File Line
+		
+		$error[ 'trace' ]	= $e->getTrace();					// Stack Trace
+		
+		// Reply JSON Error Object
+		echo json_encode( array( 'result' => null, 'error' => $error, 'id' => 0 ) );
+		
+		return true;
+	}
+	
+	
+	/**
+	 * Register Exception and Error Handlers
+	 *
+	 * @return  boolean
+	 */
+	public static function register_handlers()
+	{
+		// Register Error Handler
+		set_error_handler( array( 'jsonrpc\server', 'handle_error' ) );
+		
+		// Register Exception Handler
+		set_exception_handler( array( 'jsonrpc\server', 'handle_exception' ) );
+		
+		return true;
 	}
 
 }
