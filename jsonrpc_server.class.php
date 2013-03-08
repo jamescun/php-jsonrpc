@@ -9,11 +9,13 @@
  * @copyright   Copyright 2012 StackBlaze Inc
  */
 
+namespace jsonrpc;
+
 
 /**
  * JSON-RPC Server
  */
-class jsonrpc_server
+class server
 {
 	/* --- Core Functions ---
 	   ------------------------------------------------------------ */
@@ -29,7 +31,7 @@ class jsonrpc_server
 	public static function hook( $object )
 	{
 		// Check if valid JSON-RPC Request
-		if (  jsonrpc_server::valid_jsonrpc_request() === false ) { return false; }
+		if (  self::valid_jsonrpc_request() === false ) { return false; }
 			
 		// Get JSON-RPC Request Data
 		$request = file_get_contents( 'php://input' );		// Get Input Stream Contents
@@ -43,9 +45,9 @@ class jsonrpc_server
 		try
 		{
 			// Call Object Function (supress errors)
-			$result = @call_user_func_array( array( $object, $request->method ), $request->params );
+			$result = call_user_func_array( array( $object, $request->method ), $request->params );
 			
-			$response = new stdClass;	// Initiate Response Class
+			$response = new \stdClass;	// Initiate Response Class
 			
 			if ( empty( $result ) )
 			{
