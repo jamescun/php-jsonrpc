@@ -76,7 +76,7 @@ This is a custom exception and error handler provided to JSON-RPC which should t
 
 ## Client ##
 
-### jsonrpc_client( string $url, boolean $notification = false ) ###
+### jsonrpc\client( string $url, boolean $notification = false ) ###
 
 This function creates the new overloaded object which can access a JSON-RPC server.
 
@@ -99,10 +99,10 @@ File `test-client.php`:
         $myclass = new jsonrpc\client( 'http://127.0.0.1/test-server.php' );
         
         
-        // Access Foo Function
-        echo $myclass->foo();
+        // Access Ping Function
+        echo $myclass->ping();
         
-        // Returns: bar
+        // Returns: pong
     
     ?>
 
@@ -124,8 +124,8 @@ File `test-client.php`:
         
         try
         {
-            // Access Foo Function
-            echo $myclass->foo();
+            // Access Ping Function
+            echo $myclass->ping();
         }
         
         catch ( jsonrpc\RemoteException $e )
