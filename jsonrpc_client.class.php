@@ -5,15 +5,17 @@
  * @package     JSON-RPC
  * @subpackage  Client
  *
- * @author      James Cunningham <james@stackblaze.com>
- * @copyright   Copyright 2012 StackBlaze Inc
+ * @author      James Cunningham <j@goscale.com>
+ * @copyright   Copyright 2013 James Cunningham
  */
+
+namespace jsonrpc;
 
 
 /**
  * JSON-RPC Client
  */
-class jsonrpc_client
+class client
 {
 
 	/* --- Private Variables ---
@@ -106,8 +108,43 @@ class jsonrpc_client
 		}
 		
 		
+		// Make JSON-RPC Request
+		$response = $this->jsonrpc_request( $method, $params );
+		
+		
+		// Handle Exception
+		if ( $response->error->type == 'exception' )
+		{
+			// Get Error
+			$error = $response->error;
+			
+			throw new RemoteException( $error->message, $error->number, $error->file, $error->trace, $this->_url );
+		}
+		
+		
+		// Verify Response ID
+		if ( $response->id != $this->_id ) { throw new \Exception( 'Unable to Confirm Response ID' ); }
+		
+		return $response->result;
+	}
+	
+	
+	
+	/* --- Request Functions ---
+	   ------------------------------------------------------------ */
+	
+	/**
+	 * JSON-RPC Request
+	 *
+	 * @param   string  $method  Function Name
+	 * @param   array   $params  Function Paramaters
+	 *
+	 * @return  array|boolean
+	 */
+	private function jsonrpc_request( $method, $params )
+	{
 		// Intialise Request Object
-		$request = new stdClass;
+		$request = new \stdClass;
 		
 		
 		// Set Request ID or Notification State
@@ -121,6 +158,7 @@ class jsonrpc_client
 			$request->id = $this->_id;		// Set Request ID
 		}
 		
+		
 		// Create Request
 		$request->method = $method;
 		$request->params = $params;
@@ -128,35 +166,20 @@ class jsonrpc_client
 		// Encode JSON Request
 		$request = json_encode( $request );
 		
-		// Build Custom HTTP Headers
-		$headers = array( 'Content-Type: application/json' );
-		
 		// Execute HTTP Request
-		$response = $this->http_request( $this->_url, 'POST', $headers, $request );
-		
+		$response = $this->http_request( $this->_url, 'POST', array( 'Content-Type: application/json' ), $request );
 		
 		// If Notification, return true
 		if ( $this->_notification === true ) { return true; }
 		
 		// Decode JSON-RPC Reponse
-		$object = json_decode( $response->response, true );
+		$object = json_decode( $response->response );
 		
+		if ( json_last_error() != JSON_ERROR_NONE ) { throw new \Exception( 'Invalid JSON Response' ); }
 		
-		// Verify Response ID
-		if ( $object['id'] != $this->_id ) { throw new Exception( 'Unable to Confirm Response ID' ); }
-		
-		
-		// Handle Error/Exception
-		if ( !empty( $object['error'] ) ) { throw new Exception( $object['error'] ); }
-		
-		
-		return $object['result'];
+		return $object;
 	}
 	
-	
-	
-	/* --- Request Functions ---
-	   ------------------------------------------------------------ */
 	
 	/**
 	 * HTTP Request
@@ -170,7 +193,7 @@ class jsonrpc_client
 	private function http_request( $url, $method = 'GET', $custom_headers = null, $content = null )
 	{
 		// Validate URL
-		if ( !filter_var( $url, FILTER_VALIDATE_URL ) ) { throw new Exception( 'Invalid URL Format' ); }
+		if ( !filter_var( $url, FILTER_VALIDATE_URL ) ) { throw new \Exception( 'Invalid URL Format' ); }
 		
 		// Custom Options
 		$options['method']  = $method;
@@ -183,16 +206,19 @@ class jsonrpc_client
 		
 		
 		// Execute Request
-		$response = file_get_contents( $url, false, $options );
-		
-		
-		// Build Return
-		
-		$output = new stdClass;
-		$output->response = $response;
-		$output->headers  = $this->http_headers( $http_response_header );
-		
-		return $output;
+		if ( $response = file_get_contents( $url, false, $options ) )
+		{
+			// Build Return
+			$output = new \stdClass;
+			$output->response = $response;
+			$output->headers  = $this->http_headers( $http_response_header );
+			
+			return $output;	
+		} else
+		{
+			// Failed To Connect
+			throw new Exception( 'Could Not Connect To Server' );
+		}
 	}
 	
 	
@@ -227,4 +253,55 @@ class jsonrpc_client
 		return $output;
 	}
 
+}
+
+
+/**
+ * Exception
+ */
+class RemoteException extends \Exception
+{
+	protected	$_message;
+	protected	$_code = 0;
+	protected	$_file;
+	private		$trace;
+	private		$url;
+	
+	/**
+	 * Construct
+	 *
+	 * @param   string   $message  Exception Message
+	 * @param   integer  $code     Exception Number
+	 * @param   array    $file     Filename and Line
+	 * @param   array    $trace    Stack Trace
+	 * @param   string   $url      Server URL
+	 */
+	public function __construct( $message, $code, $file, $trace, $url = '' )
+	{
+		$this->_message	= $message;
+		$this->_code	= $code;
+		$this->_file	= (array)$file;
+		$this->trace	= $trace;
+		$this->url		= $url;
+		
+		parent::__construct( $message, $code, null );
+	}
+	
+	
+	/**
+	 * Exception To String
+	 *
+	 * @return  string
+	 */
+	public function __toString()
+	{
+		$output  = 'Remote Exception from ' . $this->url . ': ';		// Begin Exception String
+		$output .= "'" . $this->_message . "' ";						// Exception Message
+		
+		if ( $this->_code != 0 ) { $output .= '( Code: ' . $this->_code . ' ) '; }	// Exception Number
+		
+		$output .= 'on line ' . $this->_file[ 'line' ] . ' of ' . $this->_file[ 'filename' ] . ' ';		// File Position
+		
+		return $output;
+	}
 }
