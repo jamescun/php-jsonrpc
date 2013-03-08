@@ -5,8 +5,8 @@
  * @package     JSON-RPC
  * @subpackage  Server
  *
- * @author      James Cunningham <james@stackblaze.com>
- * @copyright   Copyright 2012 StackBlaze Inc
+ * @author      James Cunningham <j@goscale.com>
+ * @copyright   Copyright 2013 James Cunningham
  */
 
 namespace jsonrpc;
@@ -31,14 +31,11 @@ class server
 	public static function hook( $object )
 	{
 		// Check if valid JSON-RPC Request
-		if (  self::valid_jsonrpc_request() === false ) { return false; }
+		if (  self::valid_jsonrpc_request() === false ) { throw new Exception( 'Invalid JSON-RPC Request' ); }
+		
 			
 		// Get JSON-RPC Request Data
-		$request = file_get_contents( 'php://input' );		// Get Input Stream Contents
-		$request = json_decode( $request );					// Decode into Object
-		
-		// Check for JSON Decode Error
-		if ( json_last_error() != JSON_ERROR_NONE ) { return false; }
+		if ( !$request = self::get_request() ) { throw new Exception( 'Invalid or incomplete request given' ); }
 		
 		
 		// Attempt to execute request against local object
@@ -97,18 +94,44 @@ class server
 	
 	
 	
-	/* --- Internal Functions ---
+	/* --- Request Processing ---
 	   ------------------------------------------------------------ */
 	
 	/**
-	 * Valid JSON-RPC Request
+	 * Get JSON-RPC Request
+	 *
+	 * @return  array|boolean  Array of request parameters, or false on error
+	 */
+	private static function get_request()
+	{
+		// Get Contents of JSON stream
+		$request = file_get_contents( 'php://input' );
+		
+		if ( empty( $request ) ) { return false; }		// No Data Given
+		
+		
+		// Decode JSON Request
+		$request = json_decode( $request );					// Decode into Object
+		
+		if ( json_last_error() != JSON_ERROR_NONE ) { return false; }		// Invalid JSON
+		
+		return $request;
+	}
+	
+	
+	
+	/* --- Validation Functions ---
+	   ------------------------------------------------------------ */
+	
+	/**
+	 * Validate JSON-RPC Request
 	 *
 	 * @return  boolean  True on valid, False on Invalid
 	 */
-	public static function valid_jsonrpc_request()
+	private static function valid_jsonrpc_request()
 	{
-		if ( $_SERVER['REQUEST_METHOD'] != 'POST' ) { return false; }	// Not POST Request
-		if ( $_SERVER['HTTP_CONTENT_TYPE'] != 'application/json' ) { return false; }	// Not Corrent Content-Type
+		if ( $_SERVER[ 'REQUEST_METHOD' ] != 'POST' ) { return false; }	// Not POST Request
+		if ( $_SERVER[ 'HTTP_CONTENT_TYPE' ] != 'application/json' ) { return false; }	// Not Corrent Content-Type
 		
 		return true;	// Checks Passed
 	}
